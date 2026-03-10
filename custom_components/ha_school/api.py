@@ -149,8 +149,8 @@ class MagisterApiClient:
             # 2) challenge current
             xsrf = session.cookie_jar.filter_cookies("https://accounts.magister.net").get("XSRF-TOKEN")
             xsrf_value = xsrf.value if xsrf else ""
-            # Magister verwacht hier hetzelfde formaat als de web/app flow (12 hex chars).
-            auth_code = secrets.token_hex(6)
+            # Magister valideert hier streng; in de huidige web/app flow is dit exact deze code.
+            auth_code = "d8594abbed31"
 
             current_payload = {
                 "sessionId": session_id,
