@@ -149,7 +149,8 @@ class MagisterApiClient:
             # 2) challenge current
             xsrf = session.cookie_jar.filter_cookies("https://accounts.magister.net").get("XSRF-TOKEN")
             xsrf_value = xsrf.value if xsrf else ""
-            auth_code = secrets.token_hex(7)
+            # Magister verwacht hier hetzelfde formaat als de web/app flow (12 hex chars).
+            auth_code = secrets.token_hex(6)
 
             current_payload = {
                 "sessionId": session_id,
@@ -169,7 +170,8 @@ class MagisterApiClient:
                 },
             ) as resp:
                 if resp.status != 200:
-                    raise RuntimeError(f"challenges/current mislukt ({resp.status})")
+                    text = await resp.text()
+                    raise RuntimeError(f"challenges/current mislukt ({resp.status}): {text[:300]}")
                 _ = await resp.json()
 
             # XSRF kan gewijzigd zijn
@@ -200,7 +202,8 @@ class MagisterApiClient:
                 },
             ) as resp:
                 if resp.status != 200:
-                    raise RuntimeError(f"challenges/password mislukt ({resp.status})")
+                    text = await resp.text()
+                    raise RuntimeError(f"challenges/password mislukt ({resp.status}): {text[:300]}")
                 pwd_result = await resp.json()
 
             redirect_url = pwd_result.get("redirectURL")
