@@ -18,6 +18,12 @@ ha_school:
   update_interval: 900
 ```
 
+## Datamodel (Magister app gedrag)
+- In deze setup komt "Huiswerk" uit dezelfde afspraken-feed.
+- De integratie maakt daarom huiswerk-items op basis van afspraken waar `Inhoud` of `Opmerking` gevuld is.
+- Bijlagen-indicatie komt uit `HeeftBijlagen`.
+
 ## Let op
 - Dit is een onofficiële integratie op basis van reverse engineering.
 - Gebruik op eigen risico; endpoint-wijzigingen kunnen de integratie breken.
+- Volledige loginflow staat nog op TODO; parsing/mapping voor afspraken+huiswerk is nu wel ingericht.

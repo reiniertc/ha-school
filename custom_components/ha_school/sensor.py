@@ -43,3 +43,25 @@ class HaSchoolHomeworkCountSensor(_BaseHaSchoolSensor):
     @property
     def native_value(self):
         return len(self.coordinator.data.get("homework", [])) if self.coordinator.data else 0
+
+    @property
+    def extra_state_attributes(self):
+        if not self.coordinator.data:
+            return None
+
+        homework = self.coordinator.data.get("homework", [])
+        preview = [
+            {
+                "vak": item.subject,
+                "moment": item.due,
+                "heeft_bijlagen": item.has_attachments,
+                "tekst": item.description,
+            }
+            for item in homework[:5]
+        ]
+
+        return {
+            "bron": self.coordinator.data.get("source", "afspraken"),
+            "regel": self.coordinator.data.get("homework_rule", "Inhoud/Opmerking not empty"),
+            "preview": preview,
+        }
