@@ -64,6 +64,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class HaSchoolCalendarEntity(CoordinatorEntity[HaSchoolCoordinator], CalendarEntity):
     _attr_has_entity_name = True
     _attr_name = "Rooster"
+    _attr_object_id = "ha_school_rooster"
     _attr_unique_id = "ha_school_calendar"
 
     def __init__(self, coordinator: HaSchoolCoordinator) -> None:

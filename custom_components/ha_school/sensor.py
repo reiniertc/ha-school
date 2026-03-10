@@ -41,6 +41,7 @@ class _BaseHaSchoolSensor(CoordinatorEntity, SensorEntity):
 
 class HaSchoolLessonsCountSensor(_BaseHaSchoolSensor):
     _attr_name = "Rooster items"
+    _attr_object_id = "ha_school_rooster_items"
     _attr_unique_id = "ha_school_lessons_count"
     _attr_icon = "mdi:calendar-clock"
 
@@ -51,6 +52,7 @@ class HaSchoolLessonsCountSensor(_BaseHaSchoolSensor):
 
 class HaSchoolHomeworkCountSensor(_BaseHaSchoolSensor):
     _attr_name = "Huiswerk items"
+    _attr_object_id = "ha_school_huiswerk_items"
     _attr_unique_id = "ha_school_homework_count"
     _attr_icon = "mdi:book-open-page-variant"
 
@@ -84,6 +86,7 @@ class HaSchoolHomeworkCountSensor(_BaseHaSchoolSensor):
 
 class HaSchoolHomeworkOverviewSensor(_BaseHaSchoolSensor):
     _attr_name = "Huiswerk overzicht"
+    _attr_object_id = "ha_school_huiswerk_overzicht"
     _attr_unique_id = "ha_school_homework_overview"
     _attr_icon = "mdi:format-list-bulleted"
 
