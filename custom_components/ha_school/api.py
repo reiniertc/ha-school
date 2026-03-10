@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
@@ -28,6 +29,7 @@ class MagisterLesson:
     note: str | None = None
     has_attachments: bool = False
     info_type: int = 0
+    completed: bool = False
 
 
 @dataclass
@@ -39,6 +41,7 @@ class MagisterHomework:
     subject: str | None = None
     teacher: str | None = None
     has_attachments: bool = False
+    completed: bool = False
 
 
 class MagisterApiClient:
@@ -47,11 +50,12 @@ class MagisterApiClient:
     Auth-flow is nog TODO; parsing/logica voor huiswerk-via-afspraken staat wel klaar.
     """
 
-    def __init__(self, username: str, password: str, school: str, student_id: str) -> None:
+    def __init__(self, username: str, password: str, school: str, student_id: str, weeks_ahead: int) -> None:
         self._username = username
         self._password = password
         self._school = school
         self._student_id = student_id
+        self._weeks_ahead = max(1, weeks_ahead)
         self._token: str | None = None
 
     async def authenticate(self) -> None:
@@ -75,11 +79,17 @@ class MagisterApiClient:
             note=_strip_html(item.get("Inhoud")) or _strip_html(item.get("Opmerking")),
             has_attachments=bool(item.get("HeeftBijlagen")),
             info_type=int(item.get("InfoType") or 0),
+            completed=bool(item.get("Afgerond")),
         )
 
     async def async_get_schedule(self) -> list[MagisterLesson]:
         await asyncio.sleep(0)
         # TODO: implementeer endpoint call /api/personen/{id}/afspraken
+        # Verwachte periode:
+        #   van=today
+        #   tot=today + weeks_ahead
+        now = datetime.now(UTC).date()
+        _ = now + timedelta(weeks=self._weeks_ahead)
         return []
 
     async def async_get_homework(self, lessons: list[MagisterLesson] | None = None) -> list[MagisterHomework]:
@@ -98,6 +108,7 @@ class MagisterApiClient:
                         subject=lesson.subject,
                         teacher=lesson.teacher,
                         has_attachments=lesson.has_attachments,
+                        completed=lesson.completed,
                     )
                 )
 
@@ -115,4 +126,5 @@ class MagisterApiClient:
             "homework": homework,
             "source": "afspraken",
             "homework_rule": "Inhoud/Opmerking not empty",
+            "weeks_ahead": self._weeks_ahead,
         }

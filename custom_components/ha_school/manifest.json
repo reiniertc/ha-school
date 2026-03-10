@@ -1,7 +1,7 @@
 {
   "domain": "ha_school",
   "name": "HA School (Magister)",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "documentation": "https://github.com/reiniertc/ha-school",
   "issue_tracker": "https://github.com/reiniertc/ha-school/issues",
   "requirements": [],

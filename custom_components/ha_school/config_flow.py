@@ -10,7 +10,9 @@ from .const import (
     CONF_STUDENT_ID,
     CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
+    CONF_WEEKS_AHEAD,
     DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_WEEKS_AHEAD,
     DOMAIN,
 )
 
@@ -29,6 +31,7 @@ class HaSchoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_SCHOOL): str,
                 vol.Required(CONF_STUDENT_ID): str,
                 vol.Optional(CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL): int,
+                vol.Optional(CONF_WEEKS_AHEAD, default=DEFAULT_WEEKS_AHEAD): int,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema)

@@ -12,11 +12,13 @@ from .const import (
     CONF_STUDENT_ID,
     CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
+    CONF_WEEKS_AHEAD,
     DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_WEEKS_AHEAD,
     DOMAIN,
 )
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.CALENDAR]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -30,6 +32,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         CONF_SCHOOL: cfg.get(CONF_SCHOOL),
         CONF_STUDENT_ID: cfg.get(CONF_STUDENT_ID),
         CONF_UPDATE_INTERVAL: cfg.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+        CONF_WEEKS_AHEAD: cfg.get(CONF_WEEKS_AHEAD, DEFAULT_WEEKS_AHEAD),
     }
 
     hass.async_create_task(
@@ -50,6 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=entry.data[CONF_PASSWORD],
         school=entry.data[CONF_SCHOOL],
         student_id=str(entry.data[CONF_STUDENT_ID]),
+        weeks_ahead=int(entry.data.get(CONF_WEEKS_AHEAD, DEFAULT_WEEKS_AHEAD)),
     )
 
     coordinator = HaSchoolCoordinator(
