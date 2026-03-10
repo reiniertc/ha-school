@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import html
 import os
 import re
 import secrets
@@ -26,6 +27,7 @@ def _strip_html(value: str | None) -> str | None:
     if not value:
         return None
     text = _TAG_RE.sub(" ", value)
+    text = html.unescape(text).replace("\xa0", " ")
     text = re.sub(r"\s+", " ", text).strip()
     return text or None
 
