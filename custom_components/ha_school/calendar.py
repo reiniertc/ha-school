@@ -64,11 +64,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class HaSchoolCalendarEntity(CoordinatorEntity[HaSchoolCoordinator], CalendarEntity):
     _attr_has_entity_name = True
     _attr_name = "Rooster"
-    _attr_object_id = "ha_school_rooster"
-    _attr_unique_id = "ha_school_calendar"
 
     def __init__(self, coordinator: HaSchoolCoordinator) -> None:
         super().__init__(coordinator)
+        sid = coordinator.client.student_id
+        self._attr_object_id = f"ha_school_{sid}_rooster"
+        self._attr_unique_id = f"ha_school_{sid}_calendar"
 
     @property
     def event(self) -> CalendarEvent | None:

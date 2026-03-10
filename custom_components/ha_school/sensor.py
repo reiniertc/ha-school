@@ -41,9 +41,13 @@ class _BaseHaSchoolSensor(CoordinatorEntity, SensorEntity):
 
 class HaSchoolLessonsCountSensor(_BaseHaSchoolSensor):
     _attr_name = "Rooster items"
-    _attr_object_id = "ha_school_rooster_items"
-    _attr_unique_id = "ha_school_lessons_count"
     _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, coordinator: HaSchoolCoordinator) -> None:
+        super().__init__(coordinator)
+        sid = coordinator.client.student_id
+        self._attr_object_id = f"ha_school_{sid}_rooster_items"
+        self._attr_unique_id = f"ha_school_{sid}_lessons_count"
 
     @property
     def native_value(self):
@@ -52,9 +56,13 @@ class HaSchoolLessonsCountSensor(_BaseHaSchoolSensor):
 
 class HaSchoolHomeworkCountSensor(_BaseHaSchoolSensor):
     _attr_name = "Huiswerk items"
-    _attr_object_id = "ha_school_huiswerk_items"
-    _attr_unique_id = "ha_school_homework_count"
     _attr_icon = "mdi:book-open-page-variant"
+
+    def __init__(self, coordinator: HaSchoolCoordinator) -> None:
+        super().__init__(coordinator)
+        sid = coordinator.client.student_id
+        self._attr_object_id = f"ha_school_{sid}_huiswerk_items"
+        self._attr_unique_id = f"ha_school_{sid}_homework_count"
 
     @property
     def native_value(self):
@@ -86,9 +94,13 @@ class HaSchoolHomeworkCountSensor(_BaseHaSchoolSensor):
 
 class HaSchoolHomeworkOverviewSensor(_BaseHaSchoolSensor):
     _attr_name = "Huiswerk overzicht"
-    _attr_object_id = "ha_school_huiswerk_overzicht"
-    _attr_unique_id = "ha_school_homework_overview"
     _attr_icon = "mdi:format-list-bulleted"
+
+    def __init__(self, coordinator: HaSchoolCoordinator) -> None:
+        super().__init__(coordinator)
+        sid = coordinator.client.student_id
+        self._attr_object_id = f"ha_school_{sid}_huiswerk_overzicht"
+        self._attr_unique_id = f"ha_school_{sid}_homework_overview"
 
     @property
     def native_value(self):

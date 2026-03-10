@@ -79,6 +79,10 @@ class MagisterApiClient:
         self._expires_at: datetime | None = None
 
     @property
+    def student_id(self) -> str:
+        return self._student_id
+
+    @property
     def _tenant_id(self) -> str:
         return KNOWN_TENANTS.get(self._school.lower(), "")
 
