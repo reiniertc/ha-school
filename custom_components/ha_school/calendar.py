@@ -21,9 +21,9 @@ def _to_dt(value: str | None) -> datetime | None:
 
 
 def _event_title(lesson: MagisterLesson) -> str:
-    # [*] = er is huiswerk/info en afspraak staat niet afgerond
-    if lesson.note and not lesson.completed:
-        return f"[*] {lesson.subject}"
+    # [*] = er is huiswerk/info
+    if lesson.note:
+        return f"{lesson.subject} [*]"
     return lesson.subject
 
 
@@ -34,17 +34,9 @@ def _lesson_to_event(lesson: MagisterLesson) -> CalendarEvent | None:
         return None
 
     details: list[str] = []
-    if lesson.teacher:
-        details.append(f"Docent: {lesson.teacher}")
-    if lesson.location:
-        details.append(f"Locatie: {lesson.location}")
     if lesson.note:
-        details.append("")
-        details.append("Huiswerk / inhoud:")
-        details.append(lesson.note)
-    if lesson.has_attachments:
-        details.append("")
-        details.append("Heeft bijlagen: ja")
+        prefix = "[afgerond] " if lesson.completed else ""
+        details.append(f"{prefix}{lesson.note}")
 
     return CalendarEvent(
         summary=_event_title(lesson),
