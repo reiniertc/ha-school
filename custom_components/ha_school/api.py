@@ -42,16 +42,8 @@ def _pkce_pair() -> tuple[str, str]:
     return verifier, challenge
 
 
-def _extract_auth_code(final_url: str, return_url: str | None, page_text: str) -> str:
-    """Probeer authCode dynamisch uit de actuele flow te halen.
-
-    Volgorde:
-    1) query params op authorize-url
-    2) query params in returnUrl
-    3) HTML/JS patronen op de authorize-pagina
-    4) env override (MAGISTER_AUTH_CODE)
-    5) laatste fallback (historische waarde)
-    """
+def _extract_auth_code(final_url: str, return_url: str | None, page_text: str) -> str | None:
+    """Probeer authCode dynamisch uit de actuele flow te halen."""
 
     # 1) authorize query
     parsed = urlparse(final_url)
@@ -76,26 +68,23 @@ def _extract_auth_code(final_url: str, return_url: str | None, page_text: str) -
         except Exception:
             pass
 
-    # 3) pagina patronen
+    # 3) pagina patronen (incl. m_AuthCode varianten)
     patterns = [
         r'"authCode"\s*:\s*"([^"]+)"',
         r"'authCode'\s*:\s*'([^']+)'",
         r"authCode\s*=\s*'([^']+)'",
         r'authCode\s*=\s*"([^"]+)"',
+        r'"m_AuthCode"\s*:\s*"([^"]+)"',
+        r"m_AuthCode\s*=\s*'([^']+)'",
+        r'm_AuthCode\s*=\s*"([^"]+)"',
         r'name=["\']authCode["\']\s+value=["\']([^"\']+)["\']',
     ]
     for pat in patterns:
-        m = re.search(pat, page_text)
+        m = re.search(pat, page_text, flags=re.IGNORECASE)
         if m and m.group(1):
             return m.group(1)
 
-    # 4) expliciete override voor snelle hotfix zonder codewijziging
-    env_auth_code = os.getenv("MAGISTER_AUTH_CODE", "").strip()
-    if env_auth_code:
-        return env_auth_code
-
-    # 5) fallback op laatst bekende werkende waarde
-    return "d8594abbed31"
+    return None
 
 
 @dataclass
@@ -208,32 +197,67 @@ class MagisterApiClient:
             xsrf = session.cookie_jar.filter_cookies("https://accounts.magister.net").get("XSRF-TOKEN")
             xsrf_value = xsrf.value if xsrf else ""
 
-            # Auth code dynamisch afleiden uit actuele flow.
-            auth_code = _extract_auth_code(final_url, return_url, authorize_page)
+            # Auth code dynamisch afleiden en met fallback-varianten proberen.
+            auth_candidates: list[str] = []
 
-            current_payload = {
-                "sessionId": session_id,
-                "returnUrl": return_url,
-                "authCode": auth_code,
-            }
+            dynamic_auth = _extract_auth_code(final_url, return_url, authorize_page)
+            if dynamic_auth:
+                auth_candidates.append(dynamic_auth)
 
-            async with session.post(
-                "https://accounts.magister.net/challenges/current",
-                json=current_payload,
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                    "x-xsrf-token": xsrf_value,
-                    "Origin": "https://accounts.magister.net",
-                    "Referer": "https://accounts.magister.net/",
-                },
-            ) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    raise RuntimeError(
-                        f"challenges/current mislukt ({resp.status}) [auth_code_len={len(auth_code)}]: {text[:300]}"
-                    )
-                _ = await resp.json()
+            # Mogelijke auth code in cookies (naam bevat 'auth').
+            try:
+                cookies = session.cookie_jar.filter_cookies("https://accounts.magister.net")
+                for name, morsel in cookies.items():
+                    if "auth" in name.lower():
+                        value = (morsel.value or "").strip()
+                        if 4 <= len(value) <= 128:
+                            auth_candidates.append(value)
+            except Exception:
+                pass
+
+            env_auth_code = os.getenv("MAGISTER_AUTH_CODE", "").strip()
+            if env_auth_code:
+                auth_candidates.append(env_auth_code)
+
+            # Historische fallback + lege variant
+            auth_candidates.extend(["d8594abbed31", ""])
+
+            # dedupe met behoud volgorde
+            seen: set[str] = set()
+            auth_candidates = [c for c in auth_candidates if not (c in seen or seen.add(c))]
+
+            current_ok = False
+            current_text = ""
+            auth_code = ""
+            for candidate in auth_candidates:
+                current_payload = {
+                    "sessionId": session_id,
+                    "returnUrl": return_url,
+                    "authCode": candidate,
+                }
+
+                async with session.post(
+                    "https://accounts.magister.net/challenges/current",
+                    json=current_payload,
+                    headers={
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                        "x-xsrf-token": xsrf_value,
+                        "Origin": "https://accounts.magister.net",
+                        "Referer": "https://accounts.magister.net/",
+                    },
+                ) as resp:
+                    if resp.status == 200:
+                        _ = await resp.json()
+                        auth_code = candidate
+                        current_ok = True
+                        break
+                    current_text = await resp.text()
+
+            if not current_ok:
+                raise RuntimeError(
+                    f"challenges/current mislukt (400) [tried_auth_code_lens={[len(c) for c in auth_candidates]}]: {current_text[:300]}"
+                )
 
             # XSRF kan gewijzigd zijn
             xsrf = session.cookie_jar.filter_cookies("https://accounts.magister.net").get("XSRF-TOKEN")
