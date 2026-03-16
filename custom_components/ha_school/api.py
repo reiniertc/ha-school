@@ -42,6 +42,62 @@ def _pkce_pair() -> tuple[str, str]:
     return verifier, challenge
 
 
+def _extract_auth_code(final_url: str, return_url: str | None, page_text: str) -> str:
+    """Probeer authCode dynamisch uit de actuele flow te halen.
+
+    Volgorde:
+    1) query params op authorize-url
+    2) query params in returnUrl
+    3) HTML/JS patronen op de authorize-pagina
+    4) env override (MAGISTER_AUTH_CODE)
+    5) laatste fallback (historische waarde)
+    """
+
+    # 1) authorize query
+    parsed = urlparse(final_url)
+    q = parse_qs(parsed.query)
+    for key in ("authCode", "auth_code", "authcode"):
+        value = (q.get(key) or [None])[0]
+        if value:
+            return value
+
+    # 2) returnUrl query (kan url-encoded zijn)
+    if return_url:
+        ru = return_url
+        if ru.startswith("/"):
+            ru = f"https://accounts.magister.net{ru}"
+        try:
+            parsed_ru = urlparse(ru)
+            q_ru = parse_qs(parsed_ru.query)
+            for key in ("authCode", "auth_code", "authcode"):
+                value = (q_ru.get(key) or [None])[0]
+                if value:
+                    return value
+        except Exception:
+            pass
+
+    # 3) pagina patronen
+    patterns = [
+        r'"authCode"\s*:\s*"([^"]+)"',
+        r"'authCode'\s*:\s*'([^']+)'",
+        r"authCode\s*=\s*'([^']+)'",
+        r'authCode\s*=\s*"([^"]+)"',
+        r'name=["\']authCode["\']\s+value=["\']([^"\']+)["\']',
+    ]
+    for pat in patterns:
+        m = re.search(pat, page_text)
+        if m and m.group(1):
+            return m.group(1)
+
+    # 4) expliciete override voor snelle hotfix zonder codewijziging
+    env_auth_code = os.getenv("MAGISTER_AUTH_CODE", "").strip()
+    if env_auth_code:
+        return env_auth_code
+
+    # 5) fallback op laatst bekende werkende waarde
+    return "d8594abbed31"
+
+
 @dataclass
 class MagisterLesson:
     id: str
@@ -139,7 +195,7 @@ class MagisterApiClient:
             # 1) Start authorize flow
             async with session.get("https://accounts.magister.net/connect/authorize", params=auth_params) as resp:
                 final_url = str(resp.url)
-                _ = await resp.text()
+                authorize_page = await resp.text()
 
             parsed = urlparse(final_url)
             query = parse_qs(parsed.query)
@@ -151,8 +207,9 @@ class MagisterApiClient:
             # 2) challenge current
             xsrf = session.cookie_jar.filter_cookies("https://accounts.magister.net").get("XSRF-TOKEN")
             xsrf_value = xsrf.value if xsrf else ""
-            # Magister valideert hier streng; in de huidige web/app flow is dit exact deze code.
-            auth_code = "d8594abbed31"
+
+            # Auth code dynamisch afleiden uit actuele flow.
+            auth_code = _extract_auth_code(final_url, return_url, authorize_page)
 
             current_payload = {
                 "sessionId": session_id,
@@ -173,7 +230,9 @@ class MagisterApiClient:
             ) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    raise RuntimeError(f"challenges/current mislukt ({resp.status}): {text[:300]}")
+                    raise RuntimeError(
+                        f"challenges/current mislukt ({resp.status}) [auth_code_len={len(auth_code)}]: {text[:300]}"
+                    )
                 _ = await resp.json()
 
             # XSRF kan gewijzigd zijn
