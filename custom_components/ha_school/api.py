@@ -197,7 +197,7 @@ class MagisterApiClient:
             xsrf = session.cookie_jar.filter_cookies("https://accounts.magister.net").get("XSRF-TOKEN")
             xsrf_value = xsrf.value if xsrf else ""
 
-            # Auth code dynamisch afleiden en met fallback-varianten proberen.
+            # Auth code dynamisch afleiden en meerdere payload-varianten proberen.
             auth_candidates: list[str] = []
 
             dynamic_auth = _extract_auth_code(final_url, return_url, authorize_page)
@@ -226,37 +226,78 @@ class MagisterApiClient:
             seen: set[str] = set()
             auth_candidates = [c for c in auth_candidates if not (c in seen or seen.add(c))]
 
-            current_ok = False
-            current_text = ""
-            auth_code = ""
-            for candidate in auth_candidates:
-                current_payload = {
-                    "sessionId": session_id,
-                    "returnUrl": return_url,
-                    "authCode": candidate,
-                }
+            headers_current = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "x-xsrf-token": xsrf_value,
+                "Origin": "https://accounts.magister.net",
+                "Referer": "https://accounts.magister.net/",
+            }
 
-                async with session.post(
+            # Eerst actuele challenge-state opvragen om flow te synchroniseren.
+            try:
+                async with session.get(
                     "https://accounts.magister.net/challenges/current",
-                    json=current_payload,
+                    params={"sessionId": session_id, "returnUrl": return_url},
                     headers={
                         "Accept": "application/json",
-                        "Content-Type": "application/json",
                         "x-xsrf-token": xsrf_value,
                         "Origin": "https://accounts.magister.net",
                         "Referer": "https://accounts.magister.net/",
                     },
-                ) as resp:
-                    if resp.status == 200:
-                        _ = await resp.json()
-                        auth_code = candidate
-                        current_ok = True
-                        break
+                ) as _sync_resp:
+                    _ = await _sync_resp.text()
+            except Exception:
+                pass
+
+            current_ok = False
+            current_text = ""
+            auth_code = ""
+            tried_labels: list[str] = []
+
+            # Variant A: zonder authCode veld
+            payload_without_auth = {
+                "sessionId": session_id,
+                "returnUrl": return_url,
+            }
+            tried_labels.append("no-authcode-field")
+            async with session.post(
+                "https://accounts.magister.net/challenges/current",
+                json=payload_without_auth,
+                headers=headers_current,
+            ) as resp:
+                if resp.status == 200:
+                    _ = await resp.json()
+                    current_ok = True
+                    auth_code = ""
+                else:
                     current_text = await resp.text()
+
+            # Variant B: met authCode kandidaten
+            if not current_ok:
+                for candidate in auth_candidates:
+                    current_payload = {
+                        "sessionId": session_id,
+                        "returnUrl": return_url,
+                        "authCode": candidate,
+                    }
+                    tried_labels.append(f"authCode(len={len(candidate)})")
+
+                    async with session.post(
+                        "https://accounts.magister.net/challenges/current",
+                        json=current_payload,
+                        headers=headers_current,
+                    ) as resp:
+                        if resp.status == 200:
+                            _ = await resp.json()
+                            auth_code = candidate
+                            current_ok = True
+                            break
+                        current_text = await resp.text()
 
             if not current_ok:
                 raise RuntimeError(
-                    f"challenges/current mislukt (400) [tried_auth_code_lens={[len(c) for c in auth_candidates]}]: {current_text[:300]}"
+                    f"challenges/current mislukt (400) [tried={tried_labels}]: {current_text[:300]}"
                 )
 
             # XSRF kan gewijzigd zijn
@@ -267,13 +308,14 @@ class MagisterApiClient:
             pwd_payload = {
                 "sessionId": session_id,
                 "returnUrl": return_url,
-                "authCode": auth_code,
                 "password": self._password,
                 "userWantsToPairSoftToken": False,
                 "userSkippedFido": False,
                 "m_ChT": 2720,
                 "m_ChF": 0,
             }
+            if auth_code:
+                pwd_payload["authCode"] = auth_code
 
             async with session.post(
                 "https://accounts.magister.net/challenges/password",
