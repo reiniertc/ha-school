@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
@@ -27,6 +28,15 @@ def _event_title(lesson: MagisterLesson) -> str:
     return lesson.subject
 
 
+def _lesson_info_type(lesson: MagisterLesson) -> Any | None:
+    """Haal InfoType op uit het lesson object.
+
+    Ondersteunt zowel een eventueel gemapte Python-attribuutnaam
+    (`info_type`) als de originele Magister-naam (`InfoType`).
+    """
+    return getattr(lesson, "info_type", getattr(lesson, "InfoType", None))
+
+
 def _lesson_to_event(lesson: MagisterLesson) -> CalendarEvent | None:
     start = _to_dt(lesson.start)
     end = _to_dt(lesson.end)
@@ -38,6 +48,10 @@ def _lesson_to_event(lesson: MagisterLesson) -> CalendarEvent | None:
         prefix = "[afgerond] " if lesson.completed else ""
         details.append(f"{prefix}{lesson.note}")
 
+    info_type = _lesson_info_type(lesson)
+    if info_type is not None:
+        details.append(f"InfoType: {info_type}")
+
     return CalendarEvent(
         summary=_event_title(lesson),
         start=start,
@@ -48,7 +62,11 @@ def _lesson_to_event(lesson: MagisterLesson) -> CalendarEvent | None:
     )
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     coordinator: HaSchoolCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([HaSchoolCalendarEntity(coordinator)])
 
@@ -63,8 +81,8 @@ class HaSchoolCalendarEntity(CoordinatorEntity[HaSchoolCoordinator], CalendarEnt
         self._attr_object_id = f"ha_school_{sid}_rooster"
         self._attr_unique_id = f"ha_school_{sid}_calendar"
 
-    @property
-    def event(self) -> CalendarEvent | None:
+    def _get_next_lesson(self) -> MagisterLesson | None:
+        """Geef de eerstvolgende les terug."""
         if not self.coordinator.data:
             return None
 
@@ -75,10 +93,38 @@ class HaSchoolCalendarEntity(CoordinatorEntity[HaSchoolCoordinator], CalendarEnt
         for lesson in upcoming:
             start = _to_dt(lesson.start)
             if start and start >= now:
-                return _lesson_to_event(lesson)
+                return lesson
+
         return None
 
-    async def async_get_events(self, hass: HomeAssistant, start_date: datetime, end_date: datetime) -> list[CalendarEvent]:
+    @property
+    def event(self) -> CalendarEvent | None:
+        lesson = self._get_next_lesson()
+        if not lesson:
+            return None
+        return _lesson_to_event(lesson)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Extra attributen op de calendar entity."""
+        lesson = self._get_next_lesson()
+        if not lesson:
+            return {}
+
+        info_type = _lesson_info_type(lesson)
+        if info_type is None:
+            return {}
+
+        return {
+            "info_type": info_type,
+        }
+
+    async def async_get_events(
+        self,
+        hass: HomeAssistant,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> list[CalendarEvent]:
         if not self.coordinator.data:
             return []
 
