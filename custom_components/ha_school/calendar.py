@@ -28,7 +28,7 @@ def _event_title(lesson: MagisterLesson) -> str:
         prefix = "*PROEFWERK* "
 
     if lesson.note:
-        return f"{prefix}{lesson.subject} [*]"
+        return f"{prefix}{lesson.subject}"
 
     return f"{prefix}{lesson.subject}"
 
