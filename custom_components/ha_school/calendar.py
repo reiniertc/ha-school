@@ -33,15 +33,6 @@ def _event_title(lesson: MagisterLesson) -> str:
     return f"{prefix}{lesson.subject}"
 
 
-def _lesson_info_type(lesson: MagisterLesson) -> Any | None:
-    """Haal InfoType op uit het lesson object.
-
-    Ondersteunt zowel een eventueel gemapte Python-attribuutnaam
-    (`info_type`) als de originele Magister-naam (`InfoType`).
-    """
-    return getattr(lesson, "info_type", getattr(lesson, "InfoType", None))
-
-
 def _lesson_to_event(lesson: MagisterLesson) -> CalendarEvent | None:
     start = _to_dt(lesson.start)
     end = _to_dt(lesson.end)
@@ -52,10 +43,6 @@ def _lesson_to_event(lesson: MagisterLesson) -> CalendarEvent | None:
     if lesson.note:
         prefix = "[afgerond] " if lesson.completed else ""
         details.append(f"{prefix}{lesson.note}")
-
-    info_type = _lesson_info_type(lesson)
-    if info_type is not None:
-        details.append(f"InfoType: {info_type}")
 
     return CalendarEvent(
         summary=_event_title(lesson),
@@ -87,7 +74,6 @@ class HaSchoolCalendarEntity(CoordinatorEntity[HaSchoolCoordinator], CalendarEnt
         self._attr_unique_id = f"ha_school_{sid}_calendar"
 
     def _get_next_lesson(self) -> MagisterLesson | None:
-        """Geef de eerstvolgende les terug."""
         if not self.coordinator.data:
             return None
 
@@ -111,17 +97,12 @@ class HaSchoolCalendarEntity(CoordinatorEntity[HaSchoolCoordinator], CalendarEnt
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Extra attributen op de calendar entity."""
         lesson = self._get_next_lesson()
         if not lesson:
             return {}
 
-        info_type = _lesson_info_type(lesson)
-        if info_type is None:
-            return {}
-
         return {
-            "info_type": info_type,
+            "info_type": lesson.info_type,
         }
 
     async def async_get_events(
