@@ -24,6 +24,9 @@ def _to_dt(value: str | None) -> datetime | None:
 def _event_title(lesson: MagisterLesson) -> str:
     prefix = ""
 
+    if lesson.status == 5:
+        prefix += "*VERVALLEN* "
+            
     if lesson.info_type == 2:
         prefix = "*PROEFWERK* "
 
