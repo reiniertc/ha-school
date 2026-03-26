@@ -99,7 +99,7 @@ class MagisterLesson:
     has_attachments: bool = False
     info_type: int = 0
     completed: bool = False
-
+    status: int = 0
 
 @dataclass
 class MagisterHomework:
@@ -405,6 +405,8 @@ class MagisterApiClient:
             has_attachments=bool(item.get("HeeftBijlagen")),
             info_type=int(item.get("InfoType") or 0),
             completed=bool(item.get("Afgerond")),
+            status=int(item.get("Status") or 0),
+
         )
 
     async def async_get_schedule(self) -> list[MagisterLesson]:
