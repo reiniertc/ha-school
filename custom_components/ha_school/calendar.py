@@ -22,10 +22,15 @@ def _to_dt(value: str | None) -> datetime | None:
 
 
 def _event_title(lesson: MagisterLesson) -> str:
-    # [*] = er is huiswerk/info
+    prefix = ""
+
+    if lesson.info_type == 2:
+        prefix = "*PROEFWERK* "
+
     if lesson.note:
-        return f"{lesson.subject} [*]"
-    return lesson.subject
+        return f"{prefix}{lesson.subject} [*]"
+
+    return f"{prefix}{lesson.subject}"
 
 
 def _lesson_info_type(lesson: MagisterLesson) -> Any | None:
